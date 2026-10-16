@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jump Timing!</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="game-container">
+    <header class="game-header">
+      <h1>JUMP TIMING!</h1>
+      <p>장애물을 뛰어넘고 30초 동안 살아남으세요!</p>
+    </header>
+    <section class="game-panel">
+      <div class="game-info">
+        <div class="info-box"><span>남은 시간</span><strong id="timer">30.0초</strong></div>
+        <div class="info-box"><span>피한 장애물</span><strong id="score">0개</strong></div>
+      </div>
+      <div class="canvas-wrapper" id="gameArea">
+        <canvas id="gameCanvas" width="800" height="360"></canvas>
+        <div class="game-overlay" id="overlay">
+          <h2 id="resultTitle">점프 타이밍!</h2>
+          <p id="resultText">다가오는 장애물을 점프로 피하세요!</p>
+          <button id="startButton" type="button">게임 시작</button>
+        </div>
+      </div>
+      <div class="control-guide">
+        <p>⌨️ 스페이스바 또는 화면 터치로 점프!</p>
+        <p>점프 중에는 다시 점프할 수 없어요.</p>
+      </div>
+      <button id="restartButton" type="button">처음부터 다시하기</button>
+    </section>
+    <footer><p>Jump Timing! | Mini Web Game</p></footer>
+  </main>
+</body>
+</html>

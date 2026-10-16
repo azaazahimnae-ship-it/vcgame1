@@ -1,0 +1,33 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { min-height: 100vh; font-family: Arial, "Malgun Gothic", sans-serif; background: linear-gradient(135deg, #dceeff, #f8e9ff); display: flex; justify-content: center; align-items: center; padding: 24px 12px; color: #34445e; }
+.game-container { width: 100%; max-width: 900px; text-align: center; }
+.game-header { margin-bottom: 22px; }
+.game-header h1 { font-size: clamp(28px, 5vw, 42px); color: #526dc4; margin-bottom: 10px; letter-spacing: 2px; }
+.game-header p { font-size: 15px; color: #66748d; }
+.game-panel { background: white; border-radius: 24px; padding: 24px; box-shadow: 0 12px 35px rgba(75, 93, 155, 0.15); }
+.game-info { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 18px; }
+.info-box { flex: 1; background: #f0f5ff; padding: 12px; border-radius: 14px; }
+.info-box span { display: block; font-size: 13px; color: #73809a; margin-bottom: 5px; }
+.info-box strong { display: block; font-size: 24px; color: #536fc2; }
+.canvas-wrapper { position: relative; width: 100%; overflow: hidden; border-radius: 16px; background: #dcefff; touch-action: manipulation; cursor: pointer; }
+canvas { display: block; width: 100%; height: auto; }
+.game-overlay { position: absolute; inset: 0; background: rgba(34, 47, 83, 0.65); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 12px; color: white; }
+.game-overlay.hidden { display: none; }
+.game-overlay h2 { font-size: clamp(22px, 5vw, 36px); }
+.game-overlay p { font-size: clamp(12px, 2.5vw, 16px); line-height: 1.5; }
+button { border: none; cursor: pointer; font-family: inherit; font-weight: bold; transition: transform 0.2s, box-shadow 0.2s; }
+button:hover { transform: translateY(-4px); box-shadow: 0 7px 15px rgba(50, 60, 120, 0.2); }
+button:active { transform: scale(0.96); }
+#startButton { padding: 13px 30px; background: #ffdc80; color: #66512c; border-radius: 30px; font-size: 17px; }
+.control-guide { margin: 20px 0; color: #64738c; font-size: 14px; line-height: 1.9; }
+#restartButton { background: #758ce0; color: white; padding: 13px 28px; border-radius: 30px; font-size: 15px; }
+footer { margin-top: 18px; font-size: 12px; color: #8290aa; }
+@media (max-width: 600px) {
+  body { padding: 12px 8px; }
+  .game-panel { padding: 12px; border-radius: 16px; }
+  .game-info { gap: 8px; }
+  .info-box { padding: 9px; }
+  .info-box strong { font-size: 18px; }
+  .control-guide { font-size: 12px; }
+  #startButton { padding: 10px 22px; font-size: 14px; }
+}
