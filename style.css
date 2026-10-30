@@ -47,7 +47,6 @@ body {
 
 .game-info {
   display: flex;
-  justify-content: space-between;
   gap: 15px;
   margin-bottom: 18px;
 }
@@ -101,8 +100,9 @@ canvas {
   color: white;
 }
 
-.game-overlay.hidden {
-  display: none;
+.game-overlay.hidden,
+.hidden {
+  display: none !important;
 }
 
 .game-overlay h2 {
@@ -122,13 +122,18 @@ button {
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-button:hover {
-  transform: translateY(-4px);
+button:hover:not(:disabled) {
+  transform: translateY(-3px);
   box-shadow: 0 7px 15px rgba(50, 60, 120, 0.2);
 }
 
-button:active {
-  transform: scale(0.96);
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 #startButton {
@@ -152,6 +157,143 @@ button:active {
   padding: 13px 28px;
   border-radius: 30px;
   font-size: 15px;
+}
+
+/* 플레이 기록 입력 */
+
+.record-panel {
+  margin-top: 20px;
+  padding: 22px;
+  background: #fff9e9;
+  border: 1px solid #f1dfb0;
+  border-radius: 16px;
+}
+
+.record-panel h2 {
+  color: #765b3d;
+  font-size: 21px;
+  margin-bottom: 8px;
+}
+
+.record-panel p {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.record-panel label {
+  display: block;
+  text-align: left;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.record-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+#nickname {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d8ddea;
+  border-radius: 10px;
+  font: inherit;
+}
+
+#nickname:focus {
+  outline: 2px solid #758ce0;
+  outline-offset: 1px;
+}
+
+#saveButton {
+  padding: 12px 18px;
+  background: #526dc4;
+  color: white;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.record-message {
+  min-height: 20px;
+  margin-top: 12px;
+  margin-bottom: 0 !important;
+  color: #526dc4;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+/* 랭킹 시스템 */
+
+.ranking-panel {
+  margin-top: 28px;
+  padding: 20px;
+  border-radius: 18px;
+  background: #f6f8ff;
+}
+
+.ranking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ranking-header h2 {
+  font-size: 21px;
+  color: #526dc4;
+}
+
+#resetRankingButton {
+  padding: 9px 14px;
+  background: #e1e8ff;
+  color: #465ba5;
+  border-radius: 10px;
+}
+
+.ranking-description {
+  font-size: 13px;
+  color: #75809a;
+  margin-bottom: 12px;
+}
+
+.ranking-table-wrap {
+  overflow-x: auto;
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ranking-table th,
+.ranking-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #e2e8f5;
+}
+
+.ranking-table th {
+  background: #e6edff;
+  color: #5368a0;
+}
+
+.ranking-table td:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+
+.ranking-table tbody tr:nth-child(1) {
+  background: #fff8df;
+}
+
+.ranking-table tbody tr:nth-child(2) {
+  background: #f0f2f8;
+}
+
+.ranking-table tbody tr:nth-child(3) {
+  background: #fff0e6;
 }
 
 footer {
@@ -189,5 +331,32 @@ footer {
   #startButton {
     padding: 10px 22px;
     font-size: 14px;
+  }
+
+  .record-panel,
+  .ranking-panel {
+    padding: 14px 10px;
+  }
+
+  .record-panel h2,
+  .ranking-header h2 {
+    font-size: 17px;
+  }
+
+  .record-input-row {
+    flex-direction: column;
+  }
+
+  #saveButton {
+    width: 100%;
+  }
+
+  .ranking-table {
+    font-size: 12px;
+  }
+
+  .ranking-table th,
+  .ranking-table td {
+    padding: 10px 4px;
   }
 }

@@ -19,6 +19,17 @@ const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
 const gameArea = document.getElementById("gameArea");
 
+const recordPanel = document.getElementById("recordPanel");
+const recordForm = document.getElementById("recordForm");
+const recordSummary = document.getElementById("recordSummary");
+const nicknameInput = document.getElementById("nickname");
+const saveButton = document.getElementById("saveButton");
+const recordMessage = document.getElementById("recordMessage");
+
+const rankingBody = document.getElementById("rankingBody");
+const resetRankingButton =
+  document.getElementById("resetRankingButton");
+
 // =====================================
 // 2. 게임 기본 설정
 // =====================================
@@ -33,26 +44,30 @@ const GRAVITY = 1700;
 const JUMP_POWER = -650;
 const OBSTACLE_SPEED = 270;
 
+const RANKING_KEY = "jumpTimingRankingV1";
+const MAX_RANKING = 10;
+
 let gameState = "ready";
 let score = 0;
-
 let obstacles = [];
+
 let spawnTimer = 0;
 let nextSpawnDelay = 1.5;
 
 let lastTime = 0;
 let animationId = null;
 
+let recordSaved = false;
+let finishedResult = null;
+
 // =====================================
-// 3. 오디오 설정
+// 3. 사운드 시스템
 // =====================================
 
 const AudioContextClass =
   window.AudioContext || window.webkitAudioContext;
 
 let audioContext = null;
-
-// 게임 재시작 시 이전 엔딩 사운드를 정지하기 위한 목록
 let activeSounds = [];
 
 function initAudio() {
@@ -68,89 +83,9 @@ function initAudio() {
   }
 
   if (audioContext.state === "suspended") {
-    audioContext.resume().catch(error => {
-      console.warn("오디오 활성화 실패:", error);
-    });
+    audioContext.resume().catch(() => {});
   }
 }
-
-// =====================================
-// 4. 공통 효과음 생성 함수
-// =====================================
-
-// frequency: 음높이
-// duration: 소리 길이
-// startDelay: 재생 시작 지연
-// type: 파형 종류
-// volume: 볼륨
-
-function playTone(
-  frequency,
-  duration,
-  startDelay = 0,
-  type = "sine",
-  volume = 0.12
-) {
-  if (!audioContext) return;
-  if (audioContext.state !== "running") return;
-
-  try {
-    const now = audioContext.currentTime;
-    const startTime = now + startDelay;
-    const endTime = startTime + duration;
-
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(
-      frequency,
-      startTime
-    );
-
-    // 부드러운 시작과 종료
-    gainNode.gain.setValueAtTime(0.0001, startTime);
-
-    gainNode.gain.exponentialRampToValueAtTime(
-      volume,
-      startTime + 0.01
-    );
-
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.0001,
-      endTime
-    );
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    const sound = {
-      oscillator,
-      gainNode
-    };
-
-    activeSounds.push(sound);
-
-    oscillator.onended = function() {
-      activeSounds = activeSounds.filter(
-        item => item !== sound
-      );
-
-      oscillator.disconnect();
-      gainNode.disconnect();
-    };
-
-    oscillator.start(startTime);
-    oscillator.stop(endTime + 0.01);
-
-  } catch (error) {
-    console.warn("효과음 재생 실패:", error);
-  }
-}
-
-// =====================================
-// 5. 재생 중인 효과음 정지
-// =====================================
 
 function stopAllSounds() {
   for (const sound of activeSounds) {
@@ -158,103 +93,95 @@ function stopAllSounds() {
       sound.oscillator.onended = null;
       sound.oscillator.stop();
       sound.oscillator.disconnect();
-      sound.gainNode.disconnect();
+      sound.gain.disconnect();
     } catch (error) {
-      // 이미 종료된 사운드는 무시
+      // 이미 종료된 소리는 무시
     }
   }
 
   activeSounds = [];
 }
 
-// =====================================
-// 6. 점프 효과음
-// =====================================
-
-function playJumpSound() {
-  if (!audioContext) return;
-  if (audioContext.state !== "running") return;
+function playTone(
+  frequency,
+  duration,
+  delay = 0,
+  type = "sine",
+  volume = 0.12,
+  endFrequency = frequency
+) {
+  if (!audioContext || audioContext.state !== "running") {
+    return;
+  }
 
   try {
-    const now = audioContext.currentTime;
+    const start = audioContext.currentTime + delay;
+    const end = start + duration;
 
     const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    const gain = audioContext.createGain();
 
-    oscillator.type = "sine";
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, start);
 
-    // 낮은 음에서 높은 음으로 변화
-    oscillator.frequency.setValueAtTime(330, now);
+    if (endFrequency !== frequency) {
+      oscillator.frequency.exponentialRampToValueAtTime(
+        endFrequency,
+        end
+      );
+    }
 
-    oscillator.frequency.exponentialRampToValueAtTime(
-      760,
-      now + 0.14
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(
+      volume,
+      start + 0.01
     );
-
-    gainNode.gain.setValueAtTime(0.0001, now);
-
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.16,
-      now + 0.015
-    );
-
-    gainNode.gain.exponentialRampToValueAtTime(
+    gain.gain.exponentialRampToValueAtTime(
       0.0001,
-      now + 0.18
+      end
     );
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
 
-    const sound = {
-      oscillator,
-      gainNode
-    };
-
+    const sound = { oscillator, gain };
     activeSounds.push(sound);
 
-    oscillator.onended = function() {
+    oscillator.onended = () => {
       activeSounds = activeSounds.filter(
         item => item !== sound
       );
-
       oscillator.disconnect();
-      gainNode.disconnect();
+      gain.disconnect();
     };
 
-    oscillator.start(now);
-    oscillator.stop(now + 0.19);
+    oscillator.start(start);
+    oscillator.stop(end + 0.01);
 
   } catch (error) {
-    console.warn("점프 효과음 재생 실패:", error);
+    console.warn("효과음 오류:", error);
   }
 }
 
-// =====================================
-// 7. 승리 효과음
-// =====================================
+function playJumpSound() {
+  playTone(330, 0.18, 0, "sine", 0.16, 760);
+}
 
 function playWinSound() {
-  // 밝고 경쾌한 4음 팡파르
-  playTone(523.25, 0.16, 0.00, "triangle", 0.14);
+  playTone(523.25, 0.16, 0, "triangle", 0.14);
   playTone(659.25, 0.16, 0.17, "triangle", 0.14);
   playTone(783.99, 0.16, 0.34, "triangle", 0.14);
-  playTone(1046.50, 0.45, 0.51, "triangle", 0.16);
+  playTone(1046.5, 0.45, 0.51, "triangle", 0.16);
 }
-
-// =====================================
-// 8. 패배 효과음
-// =====================================
 
 function playLoseSound() {
-  // 낮아지는 3음 게임 오버 사운드
-  playTone(392.00, 0.22, 0.00, "sawtooth", 0.07);
+  playTone(392, 0.22, 0, "sawtooth", 0.07);
   playTone(293.66, 0.22, 0.23, "sawtooth", 0.07);
-  playTone(196.00, 0.45, 0.46, "sawtooth", 0.06);
+  playTone(196, 0.45, 0.46, "sawtooth", 0.06);
 }
 
 // =====================================
-// 9. 플레이어 설정
+// 4. 플레이어 설정
 // =====================================
 
 const player = {
@@ -267,12 +194,183 @@ const player = {
 };
 
 // =====================================
-// 10. 게임 초기화
+// 5. 랭킹 저장 및 불러오기
+// =====================================
+
+function loadRanking() {
+  try {
+    const saved = localStorage.getItem(RANKING_KEY);
+
+    if (!saved) return [];
+
+    const parsed = JSON.parse(saved);
+
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter(item =>
+        item &&
+        typeof item.nickname === "string" &&
+        Number.isInteger(item.score) &&
+        item.score >= 0 &&
+        item.score <= TARGET_SCORE &&
+        (item.result === "win" || item.result === "lose")
+      )
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return a.playedAt - b.playedAt;
+      })
+      .slice(0, MAX_RANKING);
+
+  } catch (error) {
+    console.warn("랭킹 불러오기 실패:", error);
+    return [];
+  }
+}
+
+function saveRanking(rankings) {
+  try {
+    localStorage.setItem(
+      RANKING_KEY,
+      JSON.stringify(rankings)
+    );
+    return true;
+  } catch (error) {
+    console.warn("랭킹 저장 실패:", error);
+    return false;
+  }
+}
+
+function renderRanking() {
+  const rankings = loadRanking();
+
+  rankingBody.replaceChildren();
+
+  if (rankings.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+
+    cell.colSpan = 4;
+    cell.textContent =
+      "아직 등록된 기록이 없습니다. 첫 기록을 남겨보세요!";
+
+    row.appendChild(cell);
+    rankingBody.appendChild(row);
+    return;
+  }
+
+  rankings.forEach((item, index) => {
+    const row = document.createElement("tr");
+
+    const rankCell = document.createElement("td");
+    const nameCell = document.createElement("td");
+    const scoreCell = document.createElement("td");
+    const resultCell = document.createElement("td");
+
+    rankCell.textContent =
+      ["🥇", "🥈", "🥉"][index] || `${index + 1}위`;
+
+    // HTML 코드로 해석되지 않도록 textContent 사용
+    nameCell.textContent = item.nickname;
+    scoreCell.textContent = `${item.score}점`;
+    resultCell.textContent =
+      item.result === "win" ? "승리" : "패배";
+
+    row.append(
+      rankCell,
+      nameCell,
+      scoreCell,
+      resultCell
+    );
+
+    rankingBody.appendChild(row);
+  });
+}
+
+function registerRecord(event) {
+  event.preventDefault();
+
+  if (
+    gameState !== "win" &&
+    gameState !== "lose"
+  ) {
+    return;
+  }
+
+  if (recordSaved) return;
+
+  const nickname = nicknameInput.value.trim();
+
+  if (nickname.length < 1 || nickname.length > 10) {
+    recordMessage.textContent =
+      "닉네임을 1~10자로 입력해 주세요.";
+    return;
+  }
+
+  const rankings = loadRanking();
+
+  const newRecord = {
+    nickname,
+    score,
+    result: finishedResult,
+    playedAt: Date.now()
+  };
+
+  rankings.push(newRecord);
+
+  rankings.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    return a.playedAt - b.playedAt;
+  });
+
+  const top10 = rankings.slice(0, MAX_RANKING);
+
+  if (!saveRanking(top10)) {
+    recordMessage.textContent =
+      "저장하지 못했습니다. 브라우저 저장소 설정을 확인해 주세요.";
+    return;
+  }
+
+  recordSaved = true;
+  nicknameInput.disabled = true;
+  saveButton.disabled = true;
+  saveButton.textContent = "등록 완료";
+
+  const ranked = top10.includes(newRecord);
+
+  recordMessage.textContent = ranked
+    ? "기록 등록 완료! TOP 10에 진입했어요."
+    : "기록을 제출했지만 TOP 10에는 들지 못했어요.";
+
+  renderRanking();
+}
+
+function resetRanking() {
+  const confirmed = window.confirm(
+    "이 브라우저에 저장된 랭킹을 모두 삭제할까요?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+    localStorage.removeItem(RANKING_KEY);
+    renderRanking();
+  } catch (error) {
+    console.warn("랭킹 초기화 실패:", error);
+    window.alert("랭킹 초기화에 실패했습니다.");
+  }
+}
+
+// =====================================
+// 6. 게임 초기화
 // =====================================
 
 function resetGame() {
   gameState = "ready";
-
   score = 0;
   obstacles = [];
 
@@ -284,20 +382,24 @@ function resetGame() {
   player.velocityY = 0;
   player.isJumping = false;
 
+  recordSaved = false;
+  finishedResult = null;
+
+  recordPanel.classList.add("hidden");
+  recordMessage.textContent = "";
+  nicknameInput.value = "";
+  nicknameInput.disabled = false;
+  saveButton.disabled = false;
+  saveButton.textContent = "기록 등록";
+
   updateUI();
   drawGame();
 }
-
-// =====================================
-// 11. 게임 시작
-// =====================================
 
 function startGame() {
   if (gameState === "playing") return;
 
   initAudio();
-
-  // 이전 엔딩 효과음이 남아 있으면 정지
   stopAllSounds();
 
   if (animationId !== null) {
@@ -315,23 +417,19 @@ function startGame() {
 }
 
 // =====================================
-// 12. 점프 기능
+// 7. 점프와 장애물
 // =====================================
 
 function jump() {
-  if (gameState !== "playing") return;
-
-  if (player.isJumping) return;
+  if (gameState !== "playing" || player.isJumping) {
+    return;
+  }
 
   player.velocityY = JUMP_POWER;
   player.isJumping = true;
 
   playJumpSound();
 }
-
-// =====================================
-// 13. 장애물 생성
-// =====================================
 
 function createObstacle() {
   obstacles.push({
@@ -343,10 +441,6 @@ function createObstacle() {
   });
 }
 
-// =====================================
-// 14. 충돌 판정
-// =====================================
-
 function checkCollision(a, b) {
   const margin = 5;
 
@@ -354,59 +448,51 @@ function checkCollision(a, b) {
     a.x + margin < b.x + b.width - margin &&
     a.x + a.width - margin > b.x + margin &&
     a.y + margin < b.y + b.height - margin &&
+    a.y + a.height - margin > b.y + margin &&
     a.y + a.height - margin > b.y + margin
   );
 }
 
 // =====================================
-// 15. 게임 상태 업데이트
+// 8. 게임 업데이트
 // =====================================
 
 function updateGame(deltaTime) {
-
-  // 점프 물리 처리
   player.velocityY += GRAVITY * deltaTime;
   player.y += player.velocityY * deltaTime;
 
-  const groundPlayerY = GROUND_Y - player.height;
+  const groundY = GROUND_Y - player.height;
 
-  if (player.y >= groundPlayerY) {
-    player.y = groundPlayerY;
+  if (player.y >= groundY) {
+    player.y = groundY;
     player.velocityY = 0;
     player.isJumping = false;
   }
 
-  // 장애물 생성
   spawnTimer += deltaTime;
 
   if (spawnTimer >= nextSpawnDelay) {
     createObstacle();
-
     spawnTimer = 0;
     nextSpawnDelay = 1.45 + Math.random() * 0.45;
   }
 
-  // 장애물 이동
   for (const obstacle of obstacles) {
     obstacle.x -= OBSTACLE_SPEED * deltaTime;
 
-    // 충돌 시 패배
     if (checkCollision(player, obstacle)) {
       endGame(false);
       return;
     }
 
-    // 장애물 통과 시 점수 증가
     if (
       !obstacle.passed &&
       obstacle.x + obstacle.width < player.x
     ) {
       obstacle.passed = true;
       score++;
-
       updateUI();
 
-      // 목표 점수 달성 시 승리
       if (score >= TARGET_SCORE) {
         endGame(true);
         return;
@@ -421,18 +507,24 @@ function updateGame(deltaTime) {
   updateUI();
 }
 
-// =====================================
-// 16. UI 업데이트
-// =====================================
-
 function updateUI() {
   scoreElement.textContent = score + "점";
   targetElement.textContent = TARGET_SCORE + "점";
 }
 
 // =====================================
-// 17. 배경 그리기
+// 9. 게임 화면 그리기
 // =====================================
+
+function drawCloud(x, y) {
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.beginPath();
+  ctx.arc(x, y, 23, 0, Math.PI * 2);
+  ctx.arc(x + 25, y - 10, 29, 0, Math.PI * 2);
+  ctx.arc(x + 52, y, 23, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(x, y, 52, 20);
+}
 
 function drawBackground() {
   ctx.fillStyle = "#DCEFFF";
@@ -454,35 +546,13 @@ function drawBackground() {
   ctx.fillRect(0, GROUND_Y, WIDTH, 6);
 }
 
-function drawCloud(x, y) {
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-
-  ctx.beginPath();
-  ctx.arc(x, y, 23, 0, Math.PI * 2);
-  ctx.arc(x + 25, y - 10, 29, 0, Math.PI * 2);
-  ctx.arc(x + 52, y, 23, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillRect(x, y, 52, 20);
-}
-
-// =====================================
-// 18. 플레이어 그리기
-// =====================================
-
 function drawPlayer() {
   const x = player.x;
   const y = player.y;
 
   ctx.fillStyle = "#6F8EDB";
   ctx.beginPath();
-  ctx.roundRect(
-    x,
-    y,
-    player.width,
-    player.height,
-    8
-  );
+  ctx.roundRect(x, y, player.width, player.height, 8);
   ctx.fill();
 
   ctx.fillStyle = "#FFFFFF";
@@ -508,81 +578,64 @@ function drawPlayer() {
   ctx.fillRect(x + 23, y + 39, 10, 6);
 }
 
-// =====================================
-// 19. 장애물 그리기
-// =====================================
-
 function drawObstacles() {
   for (const obstacle of obstacles) {
     ctx.fillStyle = "#E78083";
-
     ctx.beginPath();
-
-    ctx.moveTo(
-      obstacle.x,
-      obstacle.y + obstacle.height
-    );
-
+    ctx.moveTo(obstacle.x, obstacle.y + obstacle.height);
     ctx.lineTo(
       obstacle.x + obstacle.width / 2,
       obstacle.y
     );
-
     ctx.lineTo(
       obstacle.x + obstacle.width,
       obstacle.y + obstacle.height
     );
-
     ctx.closePath();
     ctx.fill();
   }
 }
 
-// =====================================
-// 20. 전체 화면 그리기
-// =====================================
-
 function drawGame() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
-
   drawBackground();
   drawPlayer();
   drawObstacles();
 }
 
 // =====================================
-// 21. 승리 / 패배 처리
+// 10. 게임 종료
 // =====================================
 
 function endGame(isWin) {
   if (gameState !== "playing") return;
 
   gameState = isWin ? "win" : "lose";
+  finishedResult = isWin ? "win" : "lose";
 
   overlay.classList.remove("hidden");
 
   if (isWin) {
     resultTitle.textContent = "🎉 승리!";
     resultText.textContent =
-      `목표 ${TARGET_SCORE}점 달성! 장애물 ${score}개를 피했어요.`;
-
-    // 승리 효과음
+      `목표 ${TARGET_SCORE}점 달성!`;
     playWinSound();
-
   } else {
     resultTitle.textContent = "💥 게임 오버!";
     resultText.textContent =
-      `장애물 ${score}개를 피했어요. 다시 도전해 보세요!`;
-
-    // 패배 효과음
+      `최종 점수 ${score}점! 다시 도전해 보세요.`;
     playLoseSound();
   }
 
   startButton.textContent = "다시 도전하기";
+
+  recordPanel.classList.remove("hidden");
+  recordSummary.textContent =
+    `최종 점수: ${score}점 / 결과: ${isWin ? "승리" : "패배"}`;
 }
 
 // =====================================
-// 22. 게임 반복 실행
+// 11. 게임 반복 실행
 // =====================================
 
 function gameLoop(currentTime) {
@@ -609,27 +662,33 @@ function gameLoop(currentTime) {
 }
 
 // =====================================
-// 23. 키보드 조작
+// 12. 조작과 버튼 이벤트
 // =====================================
 
-document.addEventListener("keydown", function(event) {
-  if (event.code === "Space") {
-    event.preventDefault();
+document.addEventListener("keydown", event => {
+  if (event.code !== "Space") return;
 
-    if (event.repeat) return;
+  // 닉네임 입력 중 스페이스바로 점프 방지
+  if (
+    event.target instanceof HTMLElement &&
+    event.target.closest(
+      "input, textarea, button, select"
+    )
+  ) {
+    return;
+  }
 
-    if (gameState === "playing") {
-      initAudio();
-      jump();
-    }
+  event.preventDefault();
+
+  if (event.repeat) return;
+
+  if (gameState === "playing") {
+    initAudio();
+    jump();
   }
 });
 
-// =====================================
-// 24. 마우스 / 모바일 조작
-// =====================================
-
-gameArea.addEventListener("pointerdown", function(event) {
+gameArea.addEventListener("pointerdown", event => {
   if (event.target.closest("button")) return;
 
   if (gameState === "playing") {
@@ -638,15 +697,15 @@ gameArea.addEventListener("pointerdown", function(event) {
   }
 });
 
-// =====================================
-// 25. 버튼 이벤트
-// =====================================
-
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", startGame);
 
+recordForm.addEventListener("submit", registerRecord);
+resetRankingButton.addEventListener("click", resetRanking);
+
 // =====================================
-// 26. 최초 실행
+// 13. 최초 실행
 // =====================================
 
 resetGame();
+renderRanking();

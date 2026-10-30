@@ -4,29 +4,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>Jump Timing!</title>
-
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
-
 <body>
   <main class="game-container">
-
     <header class="game-header">
       <h1>JUMP TIMING!</h1>
       <p>장애물 15개를 뛰어넘으면 승리!</p>
     </header>
 
     <section class="game-panel">
-
       <div class="game-info">
         <div class="info-box">
           <span>목표 점수</span>
           <strong id="target">15점</strong>
         </div>
-
         <div class="info-box">
           <span>현재 점수</span>
           <strong id="score">0점</strong>
@@ -34,7 +28,6 @@
       </div>
 
       <div class="canvas-wrapper" id="gameArea">
-
         <canvas
           id="gameCanvas"
           width="800"
@@ -43,21 +36,44 @@
 
         <div class="game-overlay" id="overlay">
           <h2 id="resultTitle">점프 타이밍!</h2>
-
           <p id="resultText">
             장애물 15개를 피하면 승리합니다!
           </p>
-
           <button id="startButton" type="button">
             게임 시작
           </button>
         </div>
-
       </div>
 
+      <!-- 게임 종료 후 닉네임 입력 -->
+      <section id="recordPanel" class="record-panel hidden">
+        <h2>✏️ 플레이 기록 남기기</h2>
+        <p id="recordSummary"></p>
+
+        <form id="recordForm">
+          <label for="nickname">닉네임 (최대 10자)</label>
+
+          <div class="record-input-row">
+            <input
+              id="nickname"
+              type="text"
+              maxlength="10"
+              placeholder="닉네임 입력"
+              autocomplete="off"
+              required
+            >
+            <button id="saveButton" type="submit">
+              기록 등록
+            </button>
+          </div>
+        </form>
+
+        <p id="recordMessage" class="record-message"></p>
+      </section>
+
       <div class="control-guide">
-        <p>⌨️ 스페이스바 또는 화면 클릭/터치로 점프!</p>
-        <p>🔊 점프할 때 효과음이 재생됩니다.</p>
+        <p>⌨️ 스페이스바 / 마우스 클릭 / 모바일 터치</p>
+        <p>🔊 점프·승리·패배 효과음 지원</p>
         <p>점프 중에는 다시 점프할 수 없어요.</p>
         <p>승리 조건: 장애물 15개 회피</p>
         <p>패배 조건: 장애물과 충돌</p>
@@ -67,12 +83,38 @@
         처음부터 다시하기
       </button>
 
+      <!-- TOP 10 랭킹 -->
+      <section class="ranking-panel">
+        <div class="ranking-header">
+          <h2>🏆 TOP 10 랭킹</h2>
+          <button id="resetRankingButton" type="button">
+            랭킹 초기화
+          </button>
+        </div>
+
+        <p class="ranking-description">
+          이 브라우저에 저장된 플레이 기록입니다.
+        </p>
+
+        <div class="ranking-table-wrap">
+          <table class="ranking-table">
+            <thead>
+              <tr>
+                <th>순위</th>
+                <th>닉네임</th>
+                <th>점수</th>
+                <th>결과</th>
+              </tr>
+            </thead>
+            <tbody id="rankingBody"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
 
     <footer>
       <p>Jump Timing! | Mini Web Game</p>
     </footer>
-
   </main>
 </body>
 </html>
