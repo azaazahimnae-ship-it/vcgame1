@@ -4,132 +4,166 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Jump Timing!</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="script.js" defer></script>
+
+  <link rel="stylesheet" href="./style.css">
+  <script src="./script.js" defer></script>
 </head>
+
 <body>
   <main class="game-container">
+
     <header class="game-header">
       <h1>JUMP TIMING!</h1>
       <p>3단계를 돌파하고 15점을 달성하세요!</p>
     </header>
 
     <section class="game-panel">
+
       <div class="game-info">
         <div class="info-box">
           <span>현재 단계</span>
           <strong id="level">1단계</strong>
         </div>
+
         <div class="info-box">
           <span>현재 점수</span>
           <strong id="score">0점</strong>
         </div>
+
         <div class="info-box">
           <span>목표 점수</span>
           <strong id="target">15점</strong>
         </div>
+
+        <div class="info-box coin-info">
+          <span>수집 코인</span>
+          <strong id="coinCount">🪙 0개</strong>
+        </div>
       </div>
 
-      <div class="progress-track"
-           role="progressbar"
-           aria-label="게임 진행도"
-           aria-valuemin="0"
-           aria-valuemax="15"
-           aria-valuenow="0"
-           id="progressTrack">
-        <div class="progress-fill" id="progressFill"></div>
+      <div
+        id="progressTrack"
+        class="progress-track"
+        role="progressbar"
+        aria-label="목표 점수 진행률"
+        aria-valuemin="0"
+        aria-valuemax="15"
+        aria-valuenow="0"
+      >
+        <div id="progressFill" class="progress-fill"></div>
       </div>
 
       <div class="canvas-wrapper" id="gameArea">
-        <canvas id="gameCanvas"
-                width="800"
-                height="360"></canvas>
+        <canvas
+          id="gameCanvas"
+          width="800"
+          height="360"
+          aria-label="점프 타이밍 게임 화면"
+        ></canvas>
 
-        <div class="level-notice hidden"
-             id="levelNotice"
-             aria-live="polite"></div>
+        <div
+          id="levelNotice"
+          class="level-notice hidden"
+          aria-live="polite"
+        ></div>
 
         <div class="game-overlay" id="overlay">
           <h2 id="resultTitle">점프 타이밍!</h2>
+
           <p id="resultText">
             장애물 15개를 피하면 승리합니다!
           </p>
+
           <button id="startButton" type="button">
             게임 시작
           </button>
         </div>
       </div>
 
-      <section id="recordPanel"
-               class="record-panel hidden">
-        <h2>✏️ 플레이 기록 남기기</h2>
+      <p class="control-guide">
+        ⌨️ 스페이스바 / 🖱️ 마우스 클릭 / 📱 화면 터치
+      </p>
+
+      <p class="control-guide sub-guide">
+        공중에서 한 번 더 누르면 2단 점프!
+        금색 코인을 모아보세요.
+      </p>
+
+      <button
+        id="restartButton"
+        class="restart-button"
+        type="button"
+      >
+        다시 시작
+      </button>
+
+      <section
+        id="recordPanel"
+        class="record-panel hidden"
+      >
+        <h2>게임 결과</h2>
+
         <p id="recordSummary"></p>
 
         <form id="recordForm">
           <label for="nickname">
-            닉네임 (최대 10자)
+            랭킹에 등록할 닉네임
           </label>
+
           <div class="record-input-row">
-            <input id="nickname"
-                   type="text"
-                   maxlength="10"
-                   placeholder="닉네임 입력"
-                   autocomplete="off"
-                   required>
+            <input
+              id="nickname"
+              type="text"
+              maxlength="10"
+              placeholder="닉네임 입력"
+              autocomplete="off"
+              required
+            >
+
             <button id="saveButton" type="submit">
               기록 등록
             </button>
           </div>
         </form>
-        <p id="recordMessage"
-           class="record-message"
-           role="status"></p>
-      </section>
 
-      <div class="control-guide">
-        <p>⌨️ 스페이스바 / 마우스 클릭 / 모바일 터치</p>
-        <p>🔊 점프·승리·패배 효과음 지원</p>
-        <p>점프 중에는 다시 점프할 수 없어요.</p>
-        <p>1단계: 0~4점 / 2단계: 5~9점 / 3단계: 10~14점</p>
-        <p>승리: 15점 달성 / 패배: 장애물 충돌</p>
-      </div>
-
-      <button id="restartButton" type="button">
-        처음부터 다시하기
-      </button>
-
-      <section class="ranking-panel">
-        <div class="ranking-header">
-          <h2>🏆 TOP 10 랭킹</h2>
-          <button id="resetRankingButton" type="button">
-            랭킹 초기화
-          </button>
-        </div>
-
-        <p class="ranking-description">
-          이 브라우저에 저장된 플레이 기록입니다.
-        </p>
-
-        <div class="ranking-table-wrap">
-          <table class="ranking-table">
-            <thead>
-              <tr>
-                <th>순위</th>
-                <th>닉네임</th>
-                <th>점수</th>
-                <th>결과</th>
-              </tr>
-            </thead>
-            <tbody id="rankingBody"></tbody>
-          </table>
-        </div>
+        <p id="recordMessage" aria-live="polite"></p>
       </section>
     </section>
 
-    <footer>
-      <p>Jump Timing! | Mini Web Game</p>
-    </footer>
+    <section class="ranking-panel">
+      <div class="ranking-header">
+        <div>
+          <h2>🏆 TOP 10 랭킹</h2>
+          <p>현재 브라우저에 저장된 기록</p>
+        </div>
+
+        <button
+          id="resetRankingButton"
+          type="button"
+          class="reset-ranking-button"
+        >
+          랭킹 초기화
+        </button>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>순위</th>
+              <th>닉네임</th>
+              <th>점수</th>
+              <th>결과</th>
+            </tr>
+          </thead>
+
+          <tbody id="rankingBody"></tbody>
+        </table>
+      </div>
+    </section>
+
   </main>
 </body>
 </html>

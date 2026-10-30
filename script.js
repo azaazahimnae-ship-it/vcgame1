@@ -2,7 +2,7 @@
 "use strict";
 
 // =====================================
-// 1. HTML 요소
+// 1. HTML 요소 연결
 // =====================================
 
 const canvas = document.getElementById("gameCanvas");
@@ -11,6 +11,8 @@ const ctx = canvas.getContext("2d");
 const scoreElement = document.getElementById("score");
 const targetElement = document.getElementById("target");
 const levelElement = document.getElementById("level");
+const coinCountElement = document.getElementById("coinCount");
+
 const progressTrack = document.getElementById("progressTrack");
 const progressFill = document.getElementById("progressFill");
 const levelNotice = document.getElementById("levelNotice");
@@ -35,7 +37,7 @@ const resetRankingButton =
   document.getElementById("resetRankingButton");
 
 // =====================================
-// 2. 게임 설정
+// 2. 기본 게임 설정
 // =====================================
 
 const WIDTH = canvas.width;
@@ -46,17 +48,20 @@ const TARGET_SCORE = 15;
 const GRAVITY = 1700;
 const JUMP_POWER = -650;
 
+// 기존 랭킹 데이터 유지
 const RANKING_KEY = "jumpTimingRankingV1";
 const MAX_RANKING = 10;
 
-// =====================================
-// 3. 단계별 난이도
-// =====================================
+// 신규 기능 설정
+const MAX_JUMPS = 2;
+const COIN_RADIUS = 13;
 
-// speed: 장애물 이동 속도 (px/초)
-// width: 장애물 너비
-// height: 장애물 높이
-// minSpawn, maxSpawn: 등장 간격 (초)
+const COIN_MIN_SPAWN = 2.2;
+const COIN_MAX_SPAWN = 3.3;
+
+// =====================================
+// 3. 단계별 난이도 설정
+// =====================================
 
 const LEVELS = [
   {
@@ -88,13 +93,26 @@ const LEVELS = [
   }
 ];
 
+// =====================================
+// 4. 게임 상태
+// =====================================
+
 let gameState = "ready";
+
 let score = 0;
 let currentLevel = 1;
 
+// 신규: 코인 획득 개수
+let coinCount = 0;
+
 let obstacles = [];
+let coins = [];
+
 let spawnTimer = 0;
 let nextSpawnDelay = 1.7;
+
+let coinSpawnTimer = 0;
+let nextCoinSpawnDelay = 2.5;
 
 let lastTime = 0;
 let animationId = null;
@@ -105,7 +123,7 @@ let finishedResult = null;
 let noticeRemaining = 0;
 
 // =====================================
-// 4. 난이도 계산
+// 5. 난이도 관리
 // =====================================
 
 function getLevelByScore(value) {
@@ -118,12 +136,24 @@ function getLevelSettings() {
   return LEVELS[currentLevel - 1];
 }
 
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
 function randomSpawnDelay() {
   const settings = getLevelSettings();
 
-  return settings.minSpawn +
-    Math.random() *
-    (settings.maxSpawn - settings.minSpawn);
+  return randomBetween(
+    settings.minSpawn,
+    settings.maxSpawn
+  );
+}
+
+function randomCoinSpawnDelay() {
+  return randomBetween(
+    COIN_MIN_SPAWN,
+    COIN_MAX_SPAWN
+  );
 }
 
 function changeLevel(newLevel) {
@@ -131,7 +161,6 @@ function changeLevel(newLevel) {
 
   currentLevel = newLevel;
 
-  // 새로운 단계의 장애물 등장 간격 적용
   spawnTimer = 0;
   nextSpawnDelay = randomSpawnDelay();
 
@@ -155,7 +184,7 @@ function updateLevelNotice(deltaTime) {
 }
 
 // =====================================
-// 5. 효과음
+// 6. 오디오 시스템
 // =====================================
 
 const AudioContextClass =
@@ -189,7 +218,7 @@ function stopAllSounds() {
       sound.oscillator.disconnect();
       sound.gain.disconnect();
     } catch (error) {
-      // 이미 종료된 소리는 무시
+      // 종료된 소리는 무시
     }
   }
 
@@ -219,6 +248,7 @@ function playTone(
     const gain = audioContext.createGain();
 
     oscillator.type = type;
+
     oscillator.frequency.setValueAtTime(
       frequency,
       start
@@ -232,10 +262,12 @@ function playTone(
     }
 
     gain.gain.setValueAtTime(0.0001, start);
+
     gain.gain.exponentialRampToValueAtTime(
       volume,
       start + 0.01
     );
+
     gain.gain.exponentialRampToValueAtTime(
       0.0001,
       end
@@ -251,6 +283,7 @@ function playTone(
       activeSounds = activeSounds.filter(
         item => item !== sound
       );
+
       oscillator.disconnect();
       gain.disconnect();
     };
@@ -259,12 +292,48 @@ function playTone(
     oscillator.stop(end + 0.01);
 
   } catch (error) {
-    console.warn("효과음 오류:", error);
+    console.warn("효과음 재생 실패:", error);
   }
 }
 
 function playJumpSound() {
-  playTone(330, 0.18, 0, "sine", 0.16, 760);
+  playTone(
+    330,
+    0.18,
+    0,
+    "sine",
+    0.16,
+    760
+  );
+}
+
+function playDoubleJumpSound() {
+  playTone(
+    520,
+    0.20,
+    0,
+    "triangle",
+    0.13,
+    980
+  );
+}
+
+function playCoinSound() {
+  playTone(
+    880,
+    0.10,
+    0,
+    "sine",
+    0.12
+  );
+
+  playTone(
+    1320,
+    0.16,
+    0.10,
+    "sine",
+    0.12
+  );
 }
 
 function playWinSound() {
@@ -281,7 +350,7 @@ function playLoseSound() {
 }
 
 // =====================================
-// 6. 플레이어
+// 7. 플레이어
 // =====================================
 
 const player = {
@@ -290,11 +359,155 @@ const player = {
   width: 36,
   height: 45,
   velocityY: 0,
+
+  // 현재 점프 사용 횟수
+  jumpCount: 0,
+
   isJumping: false
 };
 
 // =====================================
-// 7. 랭킹 저장 / 조회
+// 8. 2단 점프
+// =====================================
+
+function jump() {
+  if (gameState !== "playing") return;
+
+  // 최대 두 번까지만 점프 가능
+  if (player.jumpCount >= MAX_JUMPS) {
+    return;
+  }
+
+  player.jumpCount++;
+
+  // 공중에서 다시 점프하면 상승 속도 재설정
+  player.velocityY = JUMP_POWER;
+  player.isJumping = true;
+
+  if (player.jumpCount === 1) {
+    playJumpSound();
+  } else {
+    playDoubleJumpSound();
+  }
+}
+
+// =====================================
+// 9. 장애물 생성 및 충돌
+// =====================================
+
+function createObstacle() {
+  const settings = getLevelSettings();
+
+  obstacles.push({
+    x: WIDTH + 20,
+    y: GROUND_Y - settings.height,
+
+    width: settings.width,
+    height: settings.height,
+    speed: settings.speed,
+
+    passed: false
+  });
+}
+
+function checkCollision(a, b) {
+  const margin = 5;
+
+  return (
+    a.x + margin < b.x + b.width - margin &&
+    a.x + a.width - margin > b.x + margin &&
+    a.y + margin < b.y + b.height - margin &&
+    a.y + a.height - margin > b.y + margin
+  );
+}
+
+// =====================================
+// 10. 코인 생성 및 수집
+// =====================================
+
+function createCoin() {
+  const settings = getLevelSettings();
+
+  // 점프로 획득할 수 있는 높이
+  const coinY = randomBetween(178, 205);
+
+  coins.push({
+    x: WIDTH + 30,
+    y: coinY,
+    radius: COIN_RADIUS,
+
+    // 현재 단계 속도와 유사하게 이동
+    speed: settings.speed,
+
+    collected: false,
+
+    // 회전처럼 보이는 애니메이션용
+    animation: Math.random() * Math.PI * 2
+  });
+}
+
+function checkCoinCollision(coin) {
+  // 원형 코인과 사각형 캐릭터의 충돌 판정
+  const nearestX = Math.max(
+    player.x,
+    Math.min(
+      coin.x,
+      player.x + player.width
+    )
+  );
+
+  const nearestY = Math.max(
+    player.y,
+    Math.min(
+      coin.y,
+      player.y + player.height
+    )
+  );
+
+  const dx = coin.x - nearestX;
+  const dy = coin.y - nearestY;
+
+  return (
+    dx * dx + dy * dy <=
+    coin.radius * coin.radius
+  );
+}
+
+function updateCoins(deltaTime) {
+  coinSpawnTimer += deltaTime;
+
+  if (coinSpawnTimer >= nextCoinSpawnDelay) {
+    createCoin();
+
+    coinSpawnTimer = 0;
+    nextCoinSpawnDelay = randomCoinSpawnDelay();
+  }
+
+  for (const coin of coins) {
+    coin.x -= coin.speed * deltaTime;
+    coin.animation += deltaTime * 7;
+
+    if (
+      !coin.collected &&
+      checkCoinCollision(coin)
+    ) {
+      coin.collected = true;
+      coinCount++;
+
+      playCoinSound();
+      updateUI();
+    }
+  }
+
+  coins = coins.filter(
+    coin =>
+      !coin.collected &&
+      coin.x + coin.radius > -20
+  );
+}
+
+// =====================================
+// 11. 랭킹 불러오기
 // =====================================
 
 function sortRankings(rankings) {
@@ -343,12 +556,17 @@ function saveRanking(rankings) {
       RANKING_KEY,
       JSON.stringify(rankings)
     );
+
     return true;
   } catch (error) {
     console.warn("랭킹 저장 실패:", error);
     return false;
   }
 }
+
+// =====================================
+// 12. 랭킹 표시
+// =====================================
 
 function renderRanking() {
   const rankings = loadRanking();
@@ -382,6 +600,7 @@ function renderRanking() {
 
     nameCell.textContent = item.nickname;
     scoreCell.textContent = `${item.score}점`;
+
     resultCell.textContent =
       item.result === "win" ? "승리" : "패배";
 
@@ -395,6 +614,10 @@ function renderRanking() {
     rankingBody.appendChild(row);
   });
 }
+
+// =====================================
+// 13. 기록 등록
+// =====================================
 
 function registerRecord(event) {
   event.preventDefault();
@@ -435,11 +658,12 @@ function registerRecord(event) {
 
   if (!saveRanking(top10)) {
     recordMessage.textContent =
-      "저장 실패! 브라우저 저장소 설정을 확인해 주세요.";
+      "랭킹 저장에 실패했습니다.";
     return;
   }
 
   recordSaved = true;
+
   nicknameInput.disabled = true;
   saveButton.disabled = true;
   saveButton.textContent = "등록 완료";
@@ -463,23 +687,30 @@ function resetRanking() {
     localStorage.removeItem(RANKING_KEY);
     renderRanking();
   } catch (error) {
-    console.warn("랭킹 초기화 오류:", error);
+    console.warn("랭킹 초기화 실패:", error);
     window.alert("랭킹 초기화에 실패했습니다.");
   }
 }
 
 // =====================================
-// 8. 게임 초기화
+// 14. 게임 초기화
 // =====================================
 
 function resetGame() {
   gameState = "ready";
+
   score = 0;
   currentLevel = 1;
+  coinCount = 0;
 
   obstacles = [];
+  coins = [];
+
   spawnTimer = 0;
   nextSpawnDelay = randomSpawnDelay();
+
+  coinSpawnTimer = 0;
+  nextCoinSpawnDelay = randomCoinSpawnDelay();
 
   noticeRemaining = 0;
   levelNotice.classList.add("hidden");
@@ -487,15 +718,21 @@ function resetGame() {
   player.x = 105;
   player.y = GROUND_Y - player.height;
   player.velocityY = 0;
+
+  player.jumpCount = 0;
   player.isJumping = false;
 
   recordSaved = false;
   finishedResult = null;
 
   recordPanel.classList.add("hidden");
+
   recordMessage.textContent = "";
+  recordSummary.textContent = "";
+
   nicknameInput.value = "";
   nicknameInput.disabled = false;
+
   saveButton.disabled = false;
   saveButton.textContent = "기록 등록";
 
@@ -524,68 +761,22 @@ function startGame() {
 }
 
 // =====================================
-// 9. 점프 / 장애물
-// =====================================
-
-function jump() {
-  if (
-    gameState !== "playing" ||
-    player.isJumping
-  ) {
-    return;
-  }
-
-  player.velocityY = JUMP_POWER;
-  player.isJumping = true;
-
-  playJumpSound();
-}
-
-function createObstacle() {
-  const settings = getLevelSettings();
-
-  obstacles.push({
-    x: WIDTH + 20,
-
-    // 장애물 높이에 맞춰 바닥 위치 자동 조정
-    y: GROUND_Y - settings.height,
-
-    // 현재 단계의 크기 적용
-    width: settings.width,
-    height: settings.height,
-
-    // 현재 단계의 속도 적용
-    speed: settings.speed,
-
-    passed: false
-  });
-}
-
-function checkCollision(a, b) {
-  const margin = 5;
-
-  return (
-    a.x + margin < b.x + b.width - margin &&
-    a.x + a.width - margin > b.x + margin &&
-    a.y + margin < b.y + b.height - margin &&
-    a.y + a.height - margin > b.y + margin
-  );
-}
-
-// =====================================
-// 10. 게임 진행
+// 15. 게임 업데이트
 // =====================================
 
 function updateGame(deltaTime) {
-  // 점프 물리
+  // 플레이어 중력 적용
   player.velocityY += GRAVITY * deltaTime;
   player.y += player.velocityY * deltaTime;
 
   const groundY = GROUND_Y - player.height;
 
+  // 착지하면 점프 횟수 초기화
   if (player.y >= groundY) {
     player.y = groundY;
     player.velocityY = 0;
+
+    player.jumpCount = 0;
     player.isJumping = false;
   }
 
@@ -594,11 +785,12 @@ function updateGame(deltaTime) {
 
   if (spawnTimer >= nextSpawnDelay) {
     createObstacle();
+
     spawnTimer = 0;
     nextSpawnDelay = randomSpawnDelay();
   }
 
-  // 장애물 이동과 충돌
+  // 장애물 이동 및 충돌 검사
   for (const obstacle of obstacles) {
     obstacle.x -= obstacle.speed * deltaTime;
 
@@ -607,6 +799,7 @@ function updateGame(deltaTime) {
       return;
     }
 
+    // 장애물을 통과하면 점수 획득
     if (
       !obstacle.passed &&
       obstacle.x + obstacle.width < player.x
@@ -630,17 +823,32 @@ function updateGame(deltaTime) {
   }
 
   obstacles = obstacles.filter(
-    obstacle => obstacle.x + obstacle.width > -20
+    obstacle =>
+      obstacle.x + obstacle.width > -20
   );
+
+  // 신규: 코인 업데이트
+  updateCoins(deltaTime);
 
   updateLevelNotice(deltaTime);
   updateUI();
 }
 
+// =====================================
+// 16. 점수 / 레벨 / 코인 UI
+// =====================================
+
 function updateUI() {
   scoreElement.textContent = `${score}점`;
-  targetElement.textContent = `${TARGET_SCORE}점`;
-  levelElement.textContent = `${currentLevel}단계`;
+
+  targetElement.textContent =
+    `${TARGET_SCORE}점`;
+
+  levelElement.textContent =
+    `${currentLevel}단계`;
+
+  coinCountElement.textContent =
+    `🪙 ${coinCount}개`;
 
   const percentage = Math.min(
     100,
@@ -656,18 +864,18 @@ function updateUI() {
 }
 
 // =====================================
-// 11. 배경 그리기
+// 17. 배경 그리기
 // =====================================
 
 function drawCloud(x, y) {
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.beginPath();
 
+  ctx.beginPath();
   ctx.arc(x, y, 23, 0, Math.PI * 2);
   ctx.arc(x + 25, y - 10, 29, 0, Math.PI * 2);
   ctx.arc(x + 52, y, 23, 0, Math.PI * 2);
-
   ctx.fill();
+
   ctx.fillRect(x, y, 52, 20);
 }
 
@@ -697,7 +905,7 @@ function drawBackground() {
 }
 
 // =====================================
-// 12. 플레이어 그리기
+// 18. 플레이어 그리기
 // =====================================
 
 function drawPlayer() {
@@ -705,6 +913,7 @@ function drawPlayer() {
   const y = player.y;
 
   ctx.fillStyle = "#6F8EDB";
+
   ctx.beginPath();
   ctx.roundRect(
     x,
@@ -739,12 +948,13 @@ function drawPlayer() {
 }
 
 // =====================================
-// 13. 장애물 그리기
+// 19. 장애물 그리기
 // =====================================
 
 function drawObstacles() {
   for (const obstacle of obstacles) {
     ctx.fillStyle = "#E78083";
+
     ctx.beginPath();
 
     ctx.moveTo(
@@ -767,22 +977,78 @@ function drawObstacles() {
   }
 }
 
+// =====================================
+// 20. 코인 그리기
+// =====================================
+
+function drawCoins() {
+  for (const coin of coins) {
+    ctx.save();
+
+    // 코인 중심으로 이동
+    ctx.translate(coin.x, coin.y);
+
+    // 좌우 폭을 변화시켜 회전 느낌 구현
+    const scaleX =
+      0.65 + Math.abs(Math.cos(coin.animation)) * 0.35;
+
+    ctx.scale(scaleX, 1);
+
+    // 바깥쪽 금색 테두리
+    ctx.fillStyle = "#E7A522";
+    ctx.beginPath();
+    ctx.arc(
+      0,
+      0,
+      coin.radius,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+
+    // 안쪽 밝은 금색
+    ctx.fillStyle = "#FFD75E";
+    ctx.beginPath();
+    ctx.arc(
+      0,
+      0,
+      coin.radius - 3,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+
+    // 중앙 장식
+    ctx.fillStyle = "#C78A13";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("★", 0, 1);
+
+    ctx.restore();
+  }
+}
+
 function drawGame() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
   drawBackground();
+  drawCoins();
   drawPlayer();
   drawObstacles();
 }
 
 // =====================================
-// 14. 승리 / 패배
+// 21. 승리 / 패배
 // =====================================
 
 function endGame(isWin) {
   if (gameState !== "playing") return;
 
   gameState = isWin ? "win" : "lose";
-  finishedResult = isWin ? "win" : "lose";
+
+  finishedResult =
+    isWin ? "win" : "lose";
 
   levelNotice.classList.add("hidden");
   noticeRemaining = 0;
@@ -791,13 +1057,18 @@ function endGame(isWin) {
 
   if (isWin) {
     resultTitle.textContent = "🎉 승리!";
+
     resultText.textContent =
-      "3단계 클리어! 목표 15점 달성!";
+      `3단계 클리어! 15점 달성! 코인 ${coinCount}개 획득!`;
+
     playWinSound();
+
   } else {
     resultTitle.textContent = "💥 게임 오버!";
+
     resultText.textContent =
-      `${currentLevel}단계에서 종료! 최종 점수 ${score}점`;
+      `${currentLevel}단계에서 종료! ${score}점 / 코인 ${coinCount}개`;
+
     playLoseSound();
   }
 
@@ -806,11 +1077,14 @@ function endGame(isWin) {
   recordPanel.classList.remove("hidden");
 
   recordSummary.textContent =
-    `최종 점수: ${score}점 / 도달 단계: ${currentLevel}단계 / 결과: ${isWin ? "승리" : "패배"}`;
+    `최종 점수: ${score}점 / ` +
+    `도달 단계: ${currentLevel}단계 / ` +
+    `수집 코인: ${coinCount}개 / ` +
+    `결과: ${isWin ? "승리" : "패배"}`;
 }
 
 // =====================================
-// 15. 게임 루프
+// 22. 게임 루프
 // =====================================
 
 function gameLoop(currentTime) {
@@ -837,7 +1111,7 @@ function gameLoop(currentTime) {
 }
 
 // =====================================
-// 16. 조작 및 이벤트
+// 23. 키보드 조작
 // =====================================
 
 document.addEventListener("keydown", event => {
@@ -854,6 +1128,7 @@ document.addEventListener("keydown", event => {
 
   event.preventDefault();
 
+  // 키를 누르고 있을 때 자동 반복 방지
   if (event.repeat) return;
 
   if (gameState === "playing") {
@@ -862,8 +1137,21 @@ document.addEventListener("keydown", event => {
   }
 });
 
+// =====================================
+// 24. 마우스 / 터치 조작
+// =====================================
+
+// pointerdown 하나로 마우스와 터치 모두 처리
+// click, dblclick 이벤트를 따로 등록하지 않아
+// 점프가 중복 실행되는 것을 방지함
+
 gameArea.addEventListener("pointerdown", event => {
-  if (event.target.closest("button")) return;
+  if (
+    event.target instanceof HTMLElement &&
+    event.target.closest("button")
+  ) {
+    return;
+  }
 
   if (gameState === "playing") {
     initAudio();
@@ -871,12 +1159,36 @@ gameArea.addEventListener("pointerdown", event => {
   }
 });
 
-startButton.addEventListener("click", startGame);
-restartButton.addEventListener("click", startGame);
+// 더블클릭으로 텍스트 선택 방지
+gameArea.addEventListener("dblclick", event => {
+  event.preventDefault();
+});
 
-recordForm.addEventListener("submit", registerRecord);
-resetRankingButton.addEventListener("click", resetRanking);
+// =====================================
+// 25. 버튼 이벤트
+// =====================================
 
+startButton.addEventListener(
+  "click",
+  startGame
+);
+
+restartButton.addEventListener(
+  "click",
+  startGame
+);
+
+recordForm.addEventListener(
+  "submit",
+  registerRecord
+);
+
+resetRankingButton.addEventListener(
+  "click",
+  resetRanking
+);
+
+// 다른 탭에서 랭킹 변경 시 화면 갱신
 window.addEventListener("storage", event => {
   if (event.key === RANKING_KEY) {
     renderRanking();
@@ -884,7 +1196,7 @@ window.addEventListener("storage", event => {
 });
 
 // =====================================
-// 17. 최초 실행
+// 26. 최초 실행
 // =====================================
 
 resetGame();
