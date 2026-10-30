@@ -1,0 +1,17 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "my game",
+  "orientation": "any",
+  "scope": "/vcgame1/",
+  "short_name": "my game",
+  "start_url": "/vcgame1/",
+  "theme_color": "#ffffff",
+  "id": "/vcgame1/",
+  "description": "HTML, CSS, JavaScript로 제작한 웹 기반 미니게임입니다.",
+  "lang": "ko",
+  "categories": [
+    "games"
+  ]
+}
