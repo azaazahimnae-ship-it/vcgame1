@@ -47,14 +47,15 @@ body {
 
 .game-info {
   display: flex;
-  gap: 15px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .info-box {
   flex: 1;
+  min-width: 0;
   background: #f0f5ff;
-  padding: 12px;
+  padding: 12px 6px;
   border-radius: 14px;
 }
 
@@ -69,6 +70,22 @@ body {
   display: block;
   font-size: 24px;
   color: #536fc2;
+}
+
+.progress-track {
+  height: 12px;
+  margin-bottom: 16px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #e8edfa;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #78c6af, #758ce0);
+  transition: width 0.25s ease;
 }
 
 .canvas-wrapper {
@@ -100,7 +117,6 @@ canvas {
   color: white;
 }
 
-.game-overlay.hidden,
 .hidden {
   display: none !important;
 }
@@ -112,6 +128,36 @@ canvas {
 .game-overlay p {
   font-size: clamp(12px, 2.5vw, 16px);
   line-height: 1.5;
+}
+
+/* 단계 변경 알림 */
+
+.level-notice {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 30px;
+  background: rgba(45, 60, 110, 0.88);
+  color: white;
+  font-size: clamp(14px, 3vw, 22px);
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+  animation: noticePop 0.3s ease-out;
+}
+
+@keyframes noticePop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 button {
@@ -159,7 +205,7 @@ button:disabled {
   font-size: 15px;
 }
 
-/* 플레이 기록 입력 */
+/* 기록 입력 */
 
 .record-panel {
   margin-top: 20px;
@@ -224,7 +270,7 @@ button:disabled {
   line-height: 1.5;
 }
 
-/* 랭킹 시스템 */
+/* TOP 10 랭킹 */
 
 .ranking-panel {
   margin-top: 28px;
@@ -313,15 +359,19 @@ footer {
   }
 
   .game-info {
-    gap: 8px;
+    gap: 6px;
   }
 
   .info-box {
-    padding: 9px;
+    padding: 9px 3px;
+  }
+
+  .info-box span {
+    font-size: 11px;
   }
 
   .info-box strong {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .control-guide {
@@ -358,5 +408,15 @@ footer {
   .ranking-table th,
   .ranking-table td {
     padding: 10px 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-notice {
+    animation: none;
+  }
+
+  .progress-fill {
+    transition: none;
   }
 }
